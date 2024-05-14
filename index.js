@@ -1,3 +1,8 @@
+// SELECCIONAR UN TEMA 
+
+// Desarrollar un módulo de registro de productos para llevar el control de los plantines existentes en el vivero.
+
+
 //importacion de libs
 const express = require('express');
 const mongoose = require('mongoose');

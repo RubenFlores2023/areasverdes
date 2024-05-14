@@ -5,8 +5,8 @@ const PlantaModel = require('../models/Planta');
 //endpoint 1 traer todas las recetas
 rutas.get('/getPlantas', async (req, res) => {
     try  {
-        const receta = await  PlantaModel.find();
-        res.json(receta);
+        const planta = await  PlantaModel.find();
+        res.json(planta);
     } catch (error){
         res.status(500).json({mensaje: error.message});
     }
@@ -14,27 +14,37 @@ rutas.get('/getPlantas', async (req, res) => {
 
 //endpoint 2. Crear
 rutas.post('/crear', async (req, res) => {
-    const receta = new PlantaModel({
-        nombre: req.body.nombre,
-        ingredientes: req.body.ingredientes,
-        porciones: req.body.porciones
-    })
+    const { especie } = req.body;
+
     try {
-        const nuevaReceta = await receta.save();
-        res.status(201).json(nuevaReceta);
+        const plantaExistente = await PlantaModel.findOne({ especie });
+
+        if (plantaExistente) {
+            return res.status(400).json({ mensaje: 'Ya existe una planta con esta especie.' });
+        }
+        const planta = new PlantaModel({
+            especie: req.body.especie,
+            categoria: req.body.categoria,
+            porte: req.body.porte,
+            cantidad: req.body.cantidad,
+            precio: req.body.precio
+        });
+
+        const nuevaPlanta = await planta.save();
+        res.status(201).json(nuevaPlanta);
     } catch (error) {
-        res.status(400).json({ mensaje :  error.message})
+        res.status(500).json({ mensaje: error.message });
     }
 });
 
 //endpoint 3. Editar
 rutas.put('/editar/:id', async (req, res) => {
     try {
-        const recetaEditada = await RecetaModel.findByIdAndUpdate(req.params.id, req.body, { new : true });
-        if (!recetaEditada)
+        const plantaEditada = await PlantaModel.findByIdAndUpdate(req.params.id, req.body, { new : true });
+        if (!plantaEditada)
             return res.status(404).json({ mensaje : 'Receta no encontrada!!!'});
         else
-            return res.json(recetaEditada);
+            return res.json(plantaEditada);
 
     } catch (error) {
         res.status(400).json({ mensaje :  error.message})
@@ -42,87 +52,118 @@ rutas.put('/editar/:id', async (req, res) => {
 })
 
 
-//ENDPOINT 4. eliminar
+//Endpoint 4. eliminar
 rutas.delete('/eliminar/:id',async (req, res) => {
     try {
-       const recetaEliminada = await RecetaModel.findByIdAndDelete(req.params.id);
-       if (!recetaEliminada)
-            return res.status(404).json({ mensaje : 'Receta no encontrada!!!'});
+       const eliminarplanta = await PlantaModel.findByIdAndDelete(req.params.id);
+       if (!eliminarplanta)
+            return res.status(404).json({ mensaje : 'Registro de Planta no encontrada!!!'});
        else 
-            return res.json({mensaje :  'Receta eliminada'});    
+            return res.json({mensaje :  'Planta Eliminada'});    
        } 
     catch (error) {
-        res.status(500).json({ mensaje :  error.message})
+        res.status(500).json({ mensaje: error.message });
     }
 });
 
-// - 5. obtener una receta por su ID
-rutas.get('/receta/:id', async (req, res) => {
+// - Endpoint 5. buscar planta por su ID
+rutas.get('/planta/:id', async (req, res) => {
     try {
-        const receta = await RecetaModel.findById(req.params.id);
-        if (!receta)
-            return res.status(404).json({ mensaje : 'Receta no encontrada!!!'});
+        const planta = await PlantaModel.findById(req.params.id);
+        if (!planta)
+            return res.status(404).json({ mensaje : 'Planta no encontrada!!!'});
         else 
-            return res.json(receta);
-    } catch(error) {
-        res.status(500).json({ mensaje :  error.message})
-    }
-});
-// - obtener recetas por un ingrediente especifico
-rutas.get('/recetaPorIngrediente/:ingrediente', async (req, res) => {
-    try {
-        const recetaIngrediente = await RecetaModel.find({ ingrediente: req.params.ingrediente});
-        return res.json(recetaIngrediente);
+            return res.json(planta);
     } catch(error) {
         res.status(500).json({ mensaje :  error.message})
     }
 });
 
-rutas.get('/recetaPorIngrediente2/:ingrediente', async (req, res) => {
+// - Endpoint 6 Filtrar Plantas por categoria
+
+rutas.get('/categoria/:categoria', async (req, res) => {
     try {
-        const ingredienteBuscado = req.params.ingrediente.toLowerCase(); // Convertir el ingrediente a minúsculas para una búsqueda insensible a mayúsculas
-        const recetas = await RecetaModel.find({ ingredientes: { $regex: ingredienteBuscado, $options: 'i' }});
-        // Utilizar una expresión regular para buscar el ingrediente dentro de la lista de ingredientes de cada receta, con la opción 'i' para insensible a mayúsculas y minúsculas
-        if (recetas.length === 0) {
-            return res.status(404).json({ mensaje: 'No se encontraron recetas con ese ingrediente.' });
+        const bcategoria = req.params.categoria.toLowerCase(); 
+        const plantas = await PlantaModel.find({ categoria: { $regex: bcategoria, $options: 'i' }});
+
+        if (plantas.length === 0) {
+            return res.status(404).json({ mensaje: 'No se encontraron Plantas en esa categoria.' });
         }
-        return res.json(recetas);
+        return res.json(plantas);
     } catch(error) {
         res.status(500).json({ mensaje: error.message });
     }
 });
 
-// - eliminar todas las recetas
-rutas.delete('/eliminarTodos', async (req, res) => {
+
+// - Endpoint 7 contar la cantidad de plantas existentes
+rutas.get('/cantidadTotalPlantas', async (req, res) => {
     try {
-        await RecetaModel.deleteMany({});
-        return res.json({mensaje: "Todas las recetas han sido eliminadas"});
+        const resultado = await PlantaModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    cantidadTotal: { $sum: '$cantidad' } // Suma el campo 'cantidad' de todos los documentos
+                }
+            }
+        ]);
+        if (resultado.length === 0) {
+            return res.status(404).json({ mensaje: 'No se encontraron plantas en la base de datos.' });
+        }
+        res.json({ cantidadTotalPlantas: resultado[0].cantidadTotal });
     } catch(error) {
-        res.status(500).json({ mensaje :  error.message})
+        res.status(500).json({ mensaje: error.message });
     }
 });
 
-// - contar el numero total de recetas
-rutas.get('/totalRecetas', async (req, res) => {
+
+// - Endpoint 8 contar el numero total de Plantas por especies
+rutas.get('/totalplantas', async (req, res) => {
     try {
-        const total = await RecetaModel.countDocuments();
-        return res.json({totalReceta: total });
+        const total = await PlantaModel.countDocuments();
+        const especies = await PlantaModel.distinct('especie');
+        return res.json({ totalPlantas: total, cantidadEspecies: especies.length, especies });
     } catch(error) {
-        res.status(500).json({ mensaje :  error.message})
+        res.status(500).json({ mensaje: error.message });
     }
 });
 
-// - obtener recetas ordenadas por nombre ascendente
-// query.sort({ field: 'asc', test: -1 });
-rutas.get('/ordenarRecetas', async (req, res) => {
+// - Endpoint 9 Busca plantas por especies
+rutas.get('/especie/:especie', async (req, res) => {
     try {
-       const recetasOrdenadas = await RecetaModel.find().sort({ nombre: -1});
-       res.status(200).json(recetasOrdenadas);
+        const especieBuscada = req.params.especie.toLowerCase(); 
+        const plantas = await PlantaModel.find({ especie: { $regex: especieBuscada, $options: 'i' }});
+
+        if (plantas.length === 0) {
+            return res.status(404).json({ mensaje: 'No se encontraron plantas de esa especie.' });
+        }
+        return res.json(plantas);
     } catch(error) {
-        res.status(500).json({ mensaje :  error.message})
+        res.status(500).json({ mensaje: error.message });
     }
 });
 
+// - Endpoint 10 Busqueda de plantines por el porte
+rutas.get('/porte/:porte', async (req, res) => {
+    try {
+        const porteBuscado = req.params.porte.toLowerCase(); 
+        const resultado = await PlantaModel.aggregate([
+            { $match: { porte: { $regex: porteBuscado, $options: 'i' }}}, 
+            { $group: { _id: "$especie", cantidadTotal: { $sum: "$cantidad" }}} 
+        ]);
+
+        if (resultado.length === 0) {
+            return res.status(404).json({ mensaje: 'No se encontraron plantas con ese porte.' });
+        }
+        
+        const especies = resultado.map(item => item._id);
+        const cantidadTotal = resultado.reduce((total, item) => total + item.cantidadTotal, 0);
+
+        return res.json({ cantidadTotal, especies });
+    } catch(error) {
+        res.status(500).json({ mensaje: error.message });
+    }
+});
 
 module.exports = rutas;
 
