@@ -165,6 +165,17 @@ rutas.get('/porte/:porte', async (req, res) => {
     }
 });
 
+// - Endpoint 11 Ordenar registro por Ascendente o Descendente
+rutas.get('/ordenar', async (req, res) => {
+    try {
+        const plantas = await PlantaModel.find().sort({ especie: 1 });
+        res.json(plantas);
+    } catch(error) {
+        res.status(500).json({ mensaje: error.message });
+    }
+});
+
+
 module.exports = rutas;
 
 
